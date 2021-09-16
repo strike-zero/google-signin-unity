@@ -39,10 +39,10 @@ GoogleSignInHandler *gsiHandler;
   Method swizzled;
 
   original = class_getInstanceMethod(
-      self, @selector(preStartUnity));
+      self, @selector(application:didFinishLaunchingWithOptions:));
   swizzled = class_getInstanceMethod(
       self,
-      @selector(GoogleSignInAppController_preStartUnity));
+      @selector(GoogleSignInAppController:didFinishLaunchingWithOptions:));
   method_exchangeImplementations(original, swizzled);
 
   original = class_getInstanceMethod(
@@ -59,7 +59,8 @@ GoogleSignInHandler *gsiHandler;
   method_exchangeImplementations(original, swizzled);
 }
 
-- (void)GoogleSignInAppController_preStartUnity {
+- (BOOL)GoogleSignInAppController:(UIApplication *)application
+    didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 
   // IMPORTANT: IF you are not supplying a GoogleService-Info.plist in your
   // project that contains the client id, you need to set the client id here.
@@ -75,11 +76,11 @@ GoogleSignInHandler *gsiHandler;
   GIDSignIn *signIn = [GIDSignIn sharedInstance];
   signIn.clientID = clientId;
   signIn.delegate = gsiHandler;
-  signIn.presentingViewController = UnityGetGLViewController();
 
   // looks like it's just calling itself, but the implementations were swapped
   // so we're actually calling the original once we're done
-  [self GoogleSignInAppController_preStartUnity];
+  return [self GoogleSignInAppController:application
+           didFinishLaunchingWithOptions:launchOptions];
 }
 
 /**
@@ -94,7 +95,8 @@ GoogleSignInHandler *gsiHandler;
                                sourceApplication:sourceApplication
                                       annotation:annotation];
 
-  return [[GIDSignIn sharedInstance] handleURL:url] || handled;
+  return [[GIDSignIn sharedInstance] handleURL:url] ||
+         handled;
 }
 
 /**
@@ -107,7 +109,8 @@ GoogleSignInHandler *gsiHandler;
   BOOL handled =
       [self GoogleSignInAppController:app openURL:url options:options];
 
-  return [[GIDSignIn sharedInstance] handleURL:url] || handled;
+  return [[GIDSignIn sharedInstance] handleURL:url] ||
+         handled;
 }
 
 @end
