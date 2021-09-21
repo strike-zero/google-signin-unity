@@ -20,10 +20,10 @@ import groovy.io.FileType
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.4'
+        classpath 'com.android.tools.build:gradle:4.2.0'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -33,7 +33,7 @@ buildscript {
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
 }
 
@@ -50,7 +50,7 @@ project.ext {
     }
     if (unity_exe == null || unity_exe.isEmpty()) {
         if (os_osx) {
-            unity_exe = '/Applications/Unity/Unity.app/Contents/MacOS/Unity'
+            unity_exe = '/Applications/2021.1.18f1/Unity.app/Contents/MacOS/Unity'
         } else if (os_windows) {
             unity_exe = 'c:\\program files\\unity\\editor\\unity.exe'
         } else {
@@ -68,7 +68,7 @@ project.ext {
         git_exe = 'git'
     }
 
-    pluginVersion = "1.0.4"
+    pluginVersion = "1.0.5"
     currentPluginBasename = 'google-signin-plugin'
     currentPluginName = (currentPluginBasename + '-' + pluginVersion +
                                      '.unitypackage')
@@ -80,10 +80,11 @@ project.ext {
     pluginProjectPath = file('build/GoogleSignInPlugin').absolutePath
 
     resolverDir = new File('build/jarresolver').absolutePath
-    jarresolver_uri = System.getProperty("RESOLVER_PACKAGE_URI")
-    jarresolver_repos = [
-      'https://github.com/googlesamples/unity-jar-resolver.git'
-    ]
+    jarresolver_uri = "https://github.com/googlesamples/unity-jar-resolver/raw/master/external-dependency-manager-latest.unitypackage"
+    // jarresolver_uri = System.getProperty("RESOLVER_PACKAGE_URI")
+    // jarresolver_repos = [
+    //   'https://github.com/googlesamples/unity-jar-resolver.git'
+    // ]
     // Set the tag to a specific value if you want to build pinned to a
     // specific version of the jar resolver (This is uncommon).
     // null indicates HEAD.
@@ -116,7 +117,7 @@ task copy_jarresolver() {
         // Copy the package if the direct path is given.
         if (jarresolver_uri != null) {
             mkdir("${resolverDir}")
-            def resolver = new File("${resolverDir}/resolver.unitypackage")
+            def resolver = new File("${resolverDir}/external-dependency-manager-latest.unitypackage")
             new URL("${jarresolver_uri}").withInputStream {
                 inputStream -> resolver.withOutputStream { it << inputStream }
             }
@@ -152,7 +153,7 @@ task import_jarresolver() {
 
     doLast {
         def tree = fileTree(resolverDir) {
-            include "*.unitypackage"
+            include "external-dependency-manager-latest.unitypackage"
         }
         def jarresolver_package = tree.getSingleFile()
         def argv = [
@@ -164,7 +165,6 @@ task import_jarresolver() {
                 "-batchmode",
                 "-projectPath", pluginProjectPath,
                 "-logFile", "build/import_jarresolver.log",
-                "-importPackage", jarresolver_package,
                 "-quit"
         ]
 
@@ -177,7 +177,7 @@ task import_jarresolver() {
             println "***Error Running Unity:"
             def src = file('build/import_jarresolver.log').text
             print src
-            throw new GradleException('error importing jarresolver plugin')
+            throw new GradleException('error importing jarresolver plugin: ' + ext.execResult.exitValue)
         }
     }
 }
@@ -186,6 +186,11 @@ task generate_dependency_xml() {
   description "Generate the JarResolver dependency file for the support library"
   dependsOn copy_unity_project
   doFirst {
+      if (file("${pluginProjectPath}/${editorDir}/GoogleSignInSupportDependencies.xml").exists()) {
+            delete "${pluginProjectPath}/${editorDir}/GoogleSignInSupportDependencies.xml"
+        }
+  }
+  doLast {
     def xmlFile = file("${pluginProjectPath}/${editorDir}/GoogleSignInSupportDependencies.xml")
 
     xmlFile << '<?xml version="1.0" encoding="UTF-8" ?>\n'
@@ -241,10 +246,6 @@ task package_plugin () {
     dependsOn generate_manifest, copy_manifestMetadata
 
     doLast {
-        def tree = fileTree(resolverDir) {
-            include "*.unitypackage"
-        }
-        def jarresolver_package = tree.getSingleFile()
         def argv = [
                 "-gvh_disable",
                 "-g.building",
@@ -254,11 +255,8 @@ task package_plugin () {
                 "-batchmode",
                 "-projectPath", pluginProjectPath,
                 "-logFile", "build/unity.log",
-                "-importPackage", jarresolver_package,
                 "-exportPackage",
                     "Assets/GoogleSignIn",
-                    "Assets/Parse",
-                    "Assets/PlayServicesResolver",
                     "Assets/Plugins",
                 "${exportPath}",
                 "-quit"
@@ -316,7 +314,7 @@ task package_sample () {
 
 task inject_versionIntoMetaFiles() {
   description 'Inject the version number into the plugin\'s meta files.'
-  dependsOn copy_unity_project, generate_dependency_xml, import_jarresolver
+  dependsOn copy_unity_project, generate_dependency_xml
   doLast {
     for (fileobj in fileTree("${pluginProjectPath}")) {
       if (fileobj.path.endsWith('.meta')) {
@@ -346,10 +344,10 @@ task inject_versionIntoMetaFiles() {
 }
 
 // Construct the name of a versioned asset from the source filename and version
-// // string.
-// // The encoded string takes the form...
-// // ${filename}_v${version}_.${extension}
-// // where extension is derived from the specified filename.
+// string.
+// The encoded string takes the form...
+// ${filename}_v${version}_.${extension}
+// where extension is derived from the specified filename.
 def versionedAssetName(filename, version) {
   def extensionIndex = filename.lastIndexOf('.')
   def basename = filename.substring(0, extensionIndex)
@@ -372,6 +370,6 @@ def versionedAssetName(filename, version) {
  *  - Build the Google Sign-In Sample package (requires Unity).
  */
 task build_all() {
-        dependsOn ':native-googlesignin:uploadArchives', copy_jarresolver, package_plugin, package_sample
+        dependsOn clean, ':native-googlesignin:uploadArchives', package_plugin, package_sample
 }
 

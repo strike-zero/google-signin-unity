@@ -38,3 +38,8 @@ staging/native/testapp/testapp.xcodeproj/project.xcworkspace/xcuserdata
 
 # osx
 .DS_Store
+
+native-googlesignin/.classpath
+native-googlesignin/.cxx/
+.project
+org.eclipse.buildship.core.prefs
